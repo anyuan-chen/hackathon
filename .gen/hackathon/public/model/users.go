@@ -8,11 +8,12 @@
 package model
 
 type Users struct {
-	ID           *string `sql:"primary_key"`
+	ID           int32 `sql:"primary_key"`
 	Name         *string
 	Company      *string
 	Email        *string
 	Phone        *string
 	Role         *string
+	Salt         *string
 	HashedSecret *string
 }

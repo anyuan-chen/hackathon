@@ -8,25 +8,26 @@
 package table
 
 import (
-	"github.com/go-jet/jet/v2/sqlite"
+	"github.com/go-jet/jet/v2/postgres"
 )
 
-var Users = newUsersTable("", "users", "")
+var Users = newUsersTable("public", "users", "")
 
 type usersTable struct {
-	sqlite.Table
+	postgres.Table
 
 	// Columns
-	ID           sqlite.ColumnString
-	Name         sqlite.ColumnString
-	Company      sqlite.ColumnString
-	Email        sqlite.ColumnString
-	Phone        sqlite.ColumnString
-	Role         sqlite.ColumnString
-	HashedSecret sqlite.ColumnString
+	ID           postgres.ColumnInteger
+	Name         postgres.ColumnString
+	Company      postgres.ColumnString
+	Email        postgres.ColumnString
+	Phone        postgres.ColumnString
+	Role         postgres.ColumnString
+	Salt         postgres.ColumnString
+	HashedSecret postgres.ColumnString
 
-	AllColumns     sqlite.ColumnList
-	MutableColumns sqlite.ColumnList
+	AllColumns     postgres.ColumnList
+	MutableColumns postgres.ColumnList
 }
 
 type UsersTable struct {
@@ -64,19 +65,20 @@ func newUsersTable(schemaName, tableName, alias string) *UsersTable {
 
 func newUsersTableImpl(schemaName, tableName, alias string) usersTable {
 	var (
-		IDColumn           = sqlite.StringColumn("id")
-		NameColumn         = sqlite.StringColumn("name")
-		CompanyColumn      = sqlite.StringColumn("company")
-		EmailColumn        = sqlite.StringColumn("email")
-		PhoneColumn        = sqlite.StringColumn("phone")
-		RoleColumn         = sqlite.StringColumn("role")
-		HashedSecretColumn = sqlite.StringColumn("hashed_secret")
-		allColumns         = sqlite.ColumnList{IDColumn, NameColumn, CompanyColumn, EmailColumn, PhoneColumn, RoleColumn, HashedSecretColumn}
-		mutableColumns     = sqlite.ColumnList{NameColumn, CompanyColumn, EmailColumn, PhoneColumn, RoleColumn, HashedSecretColumn}
+		IDColumn           = postgres.IntegerColumn("id")
+		NameColumn         = postgres.StringColumn("name")
+		CompanyColumn      = postgres.StringColumn("company")
+		EmailColumn        = postgres.StringColumn("email")
+		PhoneColumn        = postgres.StringColumn("phone")
+		RoleColumn         = postgres.StringColumn("role")
+		SaltColumn         = postgres.StringColumn("salt")
+		HashedSecretColumn = postgres.StringColumn("hashed_secret")
+		allColumns         = postgres.ColumnList{IDColumn, NameColumn, CompanyColumn, EmailColumn, PhoneColumn, RoleColumn, SaltColumn, HashedSecretColumn}
+		mutableColumns     = postgres.ColumnList{NameColumn, CompanyColumn, EmailColumn, PhoneColumn, RoleColumn, SaltColumn, HashedSecretColumn}
 	)
 
 	return usersTable{
-		Table: sqlite.NewTable(schemaName, tableName, alias, allColumns...),
+		Table: postgres.NewTable(schemaName, tableName, alias, allColumns...),
 
 		//Columns
 		ID:           IDColumn,
@@ -85,6 +87,7 @@ func newUsersTableImpl(schemaName, tableName, alias string) usersTable {
 		Email:        EmailColumn,
 		Phone:        PhoneColumn,
 		Role:         RoleColumn,
+		Salt:         SaltColumn,
 		HashedSecret: HashedSecretColumn,
 
 		AllColumns:     allColumns,
