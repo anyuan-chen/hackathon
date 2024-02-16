@@ -73,7 +73,7 @@ func printReqBody(r *http.Response) {
 	log.Println(string(body))
 }
 
-func LoginNonAdmin(ctx context.Context, t *testing.T) (person_id string, person_pw string, person_bearer_token string) {
+func LoginAs(ctx context.Context, id string, pass string, t *testing.T) (person_id string, person_pw string, person_bearer_token string) {
 	startupService(ctx, t)
 	client := http.Client{}
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, "http://localhost:8000/login", nil)
@@ -81,8 +81,6 @@ func LoginNonAdmin(ctx context.Context, t *testing.T) (person_id string, person_
 		log.Println("did not create request successfully")
 		t.FailNow()
 	}
-	id := "3"
-	pass := "hi_eggy!"
 	code := "Basic " + base64.StdEncoding.EncodeToString([]byte(id+":"+pass))
 	req.Header.Add("Authorization", code)
 	resp, err := client.Do(req)
@@ -109,16 +107,21 @@ func LoginNonAdmin(ctx context.Context, t *testing.T) (person_id string, person_
 	json.Unmarshal(body, &token)
 
 	person_bearer_token = token.Access_token
-	log.Println("person_bearer_token", person_bearer_token)
+	// log.Println("person_bearer_token", person_bearer_token)
 	return id, pass, person_bearer_token
 }
 
-func TestFetchUser(t *testing.T) {
+func TestGetSelfUser(t *testing.T) {
 	ctx := context.Background()
 	client := http.Client{}
-	id, _, bearer_token := LoginNonAdmin(ctx, t)
+	//make sure the user exists
+	id := "3"
+	pass := "hi_eggy!"
+	_, _, bearer_token := LoginAs(ctx, id, pass, t)
 	assert.NotEqual(t, bearer_token, "")
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "http://localhost:8000/users/"+id, nil)
+
+	//request for user
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "http://localhost:8000/users/3", nil)
 	if err != nil {
 		log.Println("did not create request successfully")
 		t.FailNow()
@@ -130,6 +133,7 @@ func TestFetchUser(t *testing.T) {
 		log.Println("request not executed successfully", err.Error())
 		t.FailNow()
 	}
+	//read response
 	var user model.Users
 	body_bytes, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -138,7 +142,7 @@ func TestFetchUser(t *testing.T) {
 	}
 	json.Unmarshal(body_bytes, &user)
 	//assert user things here
-	log.Println("bytes", string(body_bytes), user)
+	// log.Println("bytes", string(body_bytes), user)
 	assert.Equal(t, *user.Name, "Emily May")
 	assert.Equal(t, *user.Company, "Graham Group")
 	assert.Equal(t, *user.Email, "estradadana@example.org")
@@ -146,4 +150,86 @@ func TestFetchUser(t *testing.T) {
 	assert.Equal(t, *user.Role, "hacker")
 	assert.Nil(t, user.HashedSecret)
 	assert.Nil(t, user.Salt)
+}
+func TestNoPermissionsFetchUser(t *testing.T) {
+	ctx := context.Background()
+	client := http.Client{}
+	//make sure the user exists
+	_, _, bearer_token := LoginAs(ctx, "3", "hi_eggy!", t)
+	assert.NotEqual(t, bearer_token, "")
+
+	//request for user
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "http://localhost:8000/users/5", nil)
+	if err != nil {
+		log.Println("did not create request successfully")
+		t.FailNow()
+	}
+	req.Header.Add("Authorization", "Bearer "+bearer_token)
+	log.Println("bearer_token: ", bearer_token)
+	resp, err := client.Do(req)
+	if err != nil {
+		log.Println("request not executed successfully", err.Error())
+		t.FailNow()
+	}
+	//read response
+	var user model.Users
+	body_bytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		log.Println("body not read successfully")
+		t.FailNow()
+	}
+	json.Unmarshal(body_bytes, &user)
+	assert.Equal(t, string(body_bytes), "only admins or owner of account may call this")
+}
+
+func TestFetchAllUsers(t *testing.T) {
+	ctx := context.Background()
+	client := http.Client{}
+	_, _, access_token := LoginAs(ctx, "666666", "root", t)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "http://localhost:8000/users/", nil)
+	assert.Nil(t, err)
+	req.Header.Add("Authorization", "Bearer "+access_token)
+	resp, err := client.Do(req)
+	assert.Nil(t, err)
+	resp_body, err := io.ReadAll(resp.Body)
+	assert.Nil(t, err)
+	type response struct {
+		Users []model.Users `json:"users"`
+	}
+	var users response
+	json.Unmarshal(resp_body, &users)
+	var t1, t2 bool
+	for _, user := range users.Users {
+		if user.ID == 3 {
+			assert.Equal(t, *user.Name, "Emily May")
+			assert.Equal(t, *user.Company, "Graham Group")
+			assert.Equal(t, *user.Email, "estradadana@example.org")
+			assert.Equal(t, *user.Phone, "947.098.3138x493")
+			assert.Equal(t, *user.Role, "hacker")
+			t1 = true
+		} else if user.ID == 666666 {
+			assert.Equal(t, *user.Name, "Andrew Chen")
+			assert.Equal(t, *user.Company, "unemployed </3")
+			assert.Equal(t, *user.Email, "a22chen@uwaterloo.ca")
+			assert.Equal(t, *user.Phone, "9059059055")
+			assert.Equal(t, *user.Role, "admin")
+			t2 = true
+		}
+	}
+	assert.Greater(t, len(users.Users), 0)
+	assert.True(t, t1)
+	assert.True(t, t2)
+}
+
+func TestNoPermissionsFetchAllUsers(t *testing.T) {
+	ctx := context.Background()
+	client := http.Client{}
+	_, _, access_token := LoginAs(ctx, "3", "hi_eggy!", t)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "http://localhost:8000/users", nil)
+	assert.Nil(t, err)
+	req.Header.Add("Authorization", "Bearer "+access_token)
+	resp, err := client.Do(req)
+	assert.Nil(t, err)
+	resp_body, err := io.ReadAll(resp.Body)
+	assert.Equal(t, string(resp_body), "only admins may call this")
 }

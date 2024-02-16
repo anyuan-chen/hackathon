@@ -65,7 +65,7 @@ func getCurrentUser(db *sql.DB, w http.ResponseWriter, r *http.Request) (model.U
 	if len(dest) != 1 {
 		return model.Users{}, errors.New("bad # of records")
 	}
-	log.Println(statement.DebugSql(), dest[0].ID)
+	// log.Println(statement.DebugSql(), dest[0].ID)
 	return dest[0], nil
 }
 
