@@ -9,5 +9,5 @@ import (
 func AddRoutes(r *mux.Router, db *sql.DB) {
 	r.HandleFunc("/health", handleHealth())
 	r.Handle("/users", adminOnly(db, handleGetAllUsers(db)))
-	r.Handle("/users", selfOrAdmin(db, handleGetOneUser(db)))
+	r.Handle("/users/{id}", selfOrAdmin(db, handleGetOneUser(db)))
 }

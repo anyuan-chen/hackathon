@@ -6,11 +6,13 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"strconv"
 
 	"github.com/anyuan-chen/hackathon/.gen/hackathon/public/model"
 	. "github.com/anyuan-chen/hackathon/.gen/hackathon/public/table"
 	"github.com/anyuan-chen/hackathon/src/auth"
 	. "github.com/go-jet/jet/v2/postgres"
+	"github.com/gorilla/mux"
 )
 
 // Skill represents a skill with a name and rating
@@ -54,7 +56,7 @@ func databaseError(dest Statement, w http.ResponseWriter) {
 }
 
 func handleHealth() http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request){
+	return func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}
 }
@@ -117,18 +119,14 @@ func handleGetOneUser(db *sql.DB) http.HandlerFunc {
 	}
 	type response = model.Users
 	return func(w http.ResponseWriter, r *http.Request) {
-		tmp, err := readBody(r, w) 
+		id, err := strconv.Atoi(mux.Vars(r)["id"])
 		if err != nil {
-			return
-		}
-		req, ok := tmp.(request)
-		if !ok {
 			w.WriteHeader(http.StatusBadRequest)
-			w.Write([]byte("malformed json body"))
+			w.Write([]byte("id not integer"))
 			return
 		}
 		var users []model.Users
-		stmt := Users.SELECT(Users.AllColumns).WHERE(Users.ID.EQ(Int32(req.id)))
+		stmt := Users.SELECT(Users.AllColumns).WHERE(Users.ID.EQ(Int32(int32(id))))
 		err = stmt.Query(db, &users)
 		if err != nil {
 			databaseError(stmt, w)
