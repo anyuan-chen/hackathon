@@ -11,10 +11,10 @@ import (
 	"time"
 )
 
-type UserHistory struct {
-	ID           *int32 `sql:"primary_key"`
+type UserHistories struct {
+	ID           int32 `sql:"primary_key"`
 	DateChange   *time.Time
-	WhoChangedID *string
+	WhoChangedID *int32
 	Name         *string
 	Company      *string
 	Email        *string

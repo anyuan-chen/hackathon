@@ -11,11 +11,11 @@ import (
 	"time"
 )
 
-type SkillsChanges struct {
-	ID           *int32 `sql:"primary_key"`
+type SkillHistories struct {
+	ID           int32 `sql:"primary_key"`
 	DateChange   *time.Time
-	WhoChangedID *string
-	UserID       *string
+	WhoChangedID *int32
+	UserID       *int32
 	Skill        *string
 	Rating       *int32
 }

@@ -7,9 +7,9 @@
 
 package model
 
-type Skills struct {
-	ID     *int32 `sql:"primary_key"`
-	UserID *string
-	Skill  *string
-	Rating *int32
+type Tokens struct {
+	ID          int32 `sql:"primary_key"`
+	BearerToken *string
+	ExpiryTime  *int64
+	UserID      *int32
 }

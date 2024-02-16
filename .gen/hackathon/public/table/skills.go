@@ -8,22 +8,22 @@
 package table
 
 import (
-	"github.com/go-jet/jet/v2/sqlite"
+	"github.com/go-jet/jet/v2/postgres"
 )
 
-var Skills = newSkillsTable("", "skills", "")
+var Skills = newSkillsTable("public", "skills", "")
 
 type skillsTable struct {
-	sqlite.Table
+	postgres.Table
 
 	// Columns
-	ID     sqlite.ColumnInteger
-	UserID sqlite.ColumnString
-	Skill  sqlite.ColumnString
-	Rating sqlite.ColumnInteger
+	ID     postgres.ColumnInteger
+	UserID postgres.ColumnInteger
+	Skill  postgres.ColumnString
+	Rating postgres.ColumnInteger
 
-	AllColumns     sqlite.ColumnList
-	MutableColumns sqlite.ColumnList
+	AllColumns     postgres.ColumnList
+	MutableColumns postgres.ColumnList
 }
 
 type SkillsTable struct {
@@ -61,16 +61,16 @@ func newSkillsTable(schemaName, tableName, alias string) *SkillsTable {
 
 func newSkillsTableImpl(schemaName, tableName, alias string) skillsTable {
 	var (
-		IDColumn       = sqlite.IntegerColumn("id")
-		UserIDColumn   = sqlite.StringColumn("user_id")
-		SkillColumn    = sqlite.StringColumn("skill")
-		RatingColumn   = sqlite.IntegerColumn("rating")
-		allColumns     = sqlite.ColumnList{IDColumn, UserIDColumn, SkillColumn, RatingColumn}
-		mutableColumns = sqlite.ColumnList{UserIDColumn, SkillColumn, RatingColumn}
+		IDColumn       = postgres.IntegerColumn("id")
+		UserIDColumn   = postgres.IntegerColumn("user_id")
+		SkillColumn    = postgres.StringColumn("skill")
+		RatingColumn   = postgres.IntegerColumn("rating")
+		allColumns     = postgres.ColumnList{IDColumn, UserIDColumn, SkillColumn, RatingColumn}
+		mutableColumns = postgres.ColumnList{UserIDColumn, SkillColumn, RatingColumn}
 	)
 
 	return skillsTable{
-		Table: sqlite.NewTable(schemaName, tableName, alias, allColumns...),
+		Table: postgres.NewTable(schemaName, tableName, alias, allColumns...),
 
 		//Columns
 		ID:     IDColumn,
