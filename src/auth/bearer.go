@@ -66,7 +66,7 @@ func generateBearerToken(id int32, db *sql.DB) (model.Tokens, error) {
 	b_token := uuid.New()
 	// 8 days and 8 hours in the future
 	time := time.Now().Unix() + 720000
-	insert_statement := Tokens.INSERT(Tokens.BearerToken, Tokens.ID, Tokens.ExpiryTime).VALUES(b_token, id, time)
+	insert_statement := Tokens.INSERT(Tokens.BearerToken, Tokens.ID, Tokens.ExpiryTime).VALUES(b_token, id, time).RETURNING(Tokens.AllColumns)
 	var bearer []model.Tokens
 	insert_statement.Query(db, &bearer)
 	return bearer[0], nil

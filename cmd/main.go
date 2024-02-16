@@ -19,8 +19,10 @@ import (
 	_ "github.com/lib/pq"
 )
 
+/*
+* new server, add routes
+ */
 func NewServer(db *sql.DB) http.Handler {
-	// mux := http.NewServeMux()
 	r := mux.NewRouter()
 	hackers.AddRoutes(r, db)
 	var handler http.Handler = r

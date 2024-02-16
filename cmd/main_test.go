@@ -186,10 +186,11 @@ func TestFetchAllUsers(t *testing.T) {
 	ctx := context.Background()
 	client := http.Client{}
 	_, _, access_token := LoginAs(ctx, "666666", "root", t)
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "http://localhost:8000/users/", nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "http://localhost:8000/users", nil)
 	assert.Nil(t, err)
 	req.Header.Add("Authorization", "Bearer "+access_token)
 	resp, err := client.Do(req)
+	assert.Equal(t, resp.Status, "200 OK")
 	assert.Nil(t, err)
 	resp_body, err := io.ReadAll(resp.Body)
 	assert.Nil(t, err)
@@ -198,6 +199,7 @@ func TestFetchAllUsers(t *testing.T) {
 	}
 	var users response
 	json.Unmarshal(resp_body, &users)
+	// log.Println(string(resp_body))
 	var t1, t2 bool
 	for _, user := range users.Users {
 		if user.ID == 3 {
@@ -231,5 +233,126 @@ func TestNoPermissionsFetchAllUsers(t *testing.T) {
 	resp, err := client.Do(req)
 	assert.Nil(t, err)
 	resp_body, err := io.ReadAll(resp.Body)
+	assert.Nil(t, err)
 	assert.Equal(t, string(resp_body), "only admins may call this")
+}
+
+func TestFetchAllSkills(t *testing.T) {
+	type groupedSkill struct {
+		Skill       string `json:"skill"`
+		Skill_count int    `json:"skill_count"`
+	}
+	ctx := context.Background()
+	client := http.Client{}
+	_, _, access_token := LoginAs(ctx, "666666", "root", t)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "http://localhost:8000/skills", nil)
+	req.Header.Add("Authorization", "Bearer "+access_token)
+	assert.Nil(t, err)
+	resp, err := client.Do(req)
+	assert.Nil(t, err)
+	var skills []groupedSkill
+	resp_body, err := io.ReadAll(resp.Body)
+	assert.Nil(t, err)
+	json.Unmarshal(resp_body, &skills)
+	assert.Equal(t, len(skills), 106)
+	skillExists := make([]bool, 4)
+	for _, skill := range skills {
+		if skill.Skill == "Materialize" {
+			assert.Equal(t, skill.Skill_count, 26)
+			skillExists[0] = true
+		}
+		if skill.Skill == "Tailwind" {
+			assert.Equal(t, skill.Skill_count, 33)
+			skillExists[1] = true
+		}
+		if skill.Skill == "TypeScript" {
+			assert.Equal(t, skill.Skill_count, 24)
+			skillExists[2] = true
+		}
+		if skill.Skill == "Rust" {
+			assert.Equal(t, skill.Skill_count, 35)
+			skillExists[3] = true
+		}
+	}
+	for _, exists := range skillExists {
+		assert.True(t, exists)
+	}
+}
+
+func TestFetchAllSkillsWithMinFreq(t *testing.T) {
+	type groupedSkill struct {
+		Skill       string `json:"skill"`
+		Skill_count int    `json:"skill_count"`
+	}
+	ctx := context.Background()
+	client := http.Client{}
+	_, _, access_token := LoginAs(ctx, "666666", "root", t)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "http://localhost:8000/skills?min_freq=30", nil)
+	req.Header.Add("Authorization", "Bearer "+access_token)
+	assert.Nil(t, err)
+	resp, err := client.Do(req)
+	assert.Nil(t, err)
+	var skills []groupedSkill
+	resp_body, err := io.ReadAll(resp.Body)
+	assert.Nil(t, err)
+	json.Unmarshal(resp_body, &skills)
+	skillExists := make([]bool, 2)
+	for _, skill := range skills {
+		if skill.Skill == "Materialize" {
+			t.FailNow()
+		}
+		if skill.Skill == "Tailwind" {
+			assert.Equal(t, skill.Skill_count, 33)
+			skillExists[0] = true
+		}
+		if skill.Skill == "TypeScript" {
+			t.FailNow()
+		}
+		if skill.Skill == "Rust" {
+			assert.Equal(t, skill.Skill_count, 35)
+			skillExists[1] = true
+		}
+	}
+	for _, exists := range skillExists {
+		assert.True(t, exists)
+	}
+}
+
+func TestFetchAllSkillsWithMaxFreq(t *testing.T) {
+	type groupedSkill struct {
+		Skill       string `json:"skill"`
+		Skill_count int    `json:"skill_count"`
+	}
+	ctx := context.Background()
+	client := http.Client{}
+	_, _, access_token := LoginAs(ctx, "666666", "root", t)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "http://localhost:8000/skills?max_freq=30", nil)
+	req.Header.Add("Authorization", "Bearer "+access_token)
+	assert.Nil(t, err)
+	resp, err := client.Do(req)
+	assert.Nil(t, err)
+	var skills []groupedSkill
+	resp_body, err := io.ReadAll(resp.Body)
+	assert.Nil(t, err)
+	json.Unmarshal(resp_body, &skills)
+	skillExists := make([]bool, 2)
+	for _, skill := range skills {
+		if skill.Skill == "Materialize" {
+			assert.Equal(t, skill.Skill_count, 26)
+			skillExists[0] = true
+		}
+		if skill.Skill == "Tailwind" {
+			t.FailNow()
+		}
+		if skill.Skill == "TypeScript" {
+			assert.Equal(t, skill.Skill_count, 24)
+			skillExists[1] = true
+		}
+		if skill.Skill == "Rust" {
+			t.FailNow()
+		}
+	}
+	for _, exists := range skillExists {
+		assert.True(t, exists)
+	}
 }

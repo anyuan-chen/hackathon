@@ -111,21 +111,25 @@ func handleLogin(db *sql.DB) http.HandlerFunc {
 }
 
 func handleGetAllUsers(db *sql.DB) http.HandlerFunc {
-	type request struct {
-	}
 	type response struct {
-		users model.Users
+		Users []model.Users `json:"users"`
 	}
 	return func(w http.ResponseWriter, r *http.Request) {
-
+		var users []model.Users
+		stmt := Users.SELECT(Users.ID, Users.Name, Users.Email, Users.Company, Users.Role, Users.Role, Users.Phone)
+		err := stmt.Query(db, &users)
+		if err != nil {
+			databaseError(stmt, w)
+			return
+		}
+		resp := response{
+			Users: users,
+		}
+		writeBody(r, w, resp)
 	}
 }
 
 func handleGetOneUser(db *sql.DB) http.HandlerFunc {
-	type request struct {
-		id int32
-	}
-	type response = model.Users
 	return func(w http.ResponseWriter, r *http.Request) {
 		id, err := strconv.Atoi(mux.Vars(r)["id"])
 		if err != nil {
@@ -139,7 +143,7 @@ func handleGetOneUser(db *sql.DB) http.HandlerFunc {
 		if err != nil {
 			databaseError(stmt, w)
 			return
-		} else if len(users) == 0{
+		} else if len(users) == 0 {
 			w.WriteHeader(http.StatusBadRequest)
 			w.Write([]byte(stmt.DebugSql()))
 			return
@@ -153,29 +157,59 @@ func handleGetOneUser(db *sql.DB) http.HandlerFunc {
 }
 
 func handleUpdateOneUser(db *sql.DB) http.HandlerFunc {
-	type request = InputPerson
+	type request = model.Users
 	type response = model.Users
 	return func(w http.ResponseWriter, r *http.Request) {
-
+		
 	}
 }
 
 func handleGetAllSkills(db *sql.DB) http.HandlerFunc {
-	type request struct {
-		min_freq int `json:"min_freq"`
-		max_freq int `json:"max_freq"`
-	}
-	type response = []model.Skills
 	return func(w http.ResponseWriter, r *http.Request) {
-
-	}
-}
-
-func handleCreateUser(db *sql.DB) http.HandlerFunc {
-	type request = InputPerson
-	type response = InputPerson
-	return func(w http.ResponseWriter, r *http.Request) {
-
+		min_freq_str := r.URL.Query().Get("min_freq")
+		max_freq_str := r.URL.Query().Get("max_freq")
+		var min_freq, max_freq int
+		if min_freq_str != "" {
+			mf, err := strconv.Atoi(min_freq_str)
+			if err != nil {
+				w.WriteHeader(http.StatusBadRequest)
+				w.Write([]byte("malformed min_freq query parameters"))
+				return
+			}
+			min_freq = mf
+		}
+		if max_freq_str != "" {
+			mf, err := strconv.Atoi(max_freq_str)
+			if err != nil {
+				w.WriteHeader(http.StatusBadRequest)
+				w.Write([]byte("malformed max_freq query parameters"))
+				return
+			}
+			max_freq = mf
+		}
+		grouped_skills, err := db.Query("SELECT skills.skill, COUNT(skills.id) AS skill_count FROM public.skills GROUP BY skills.skill;")
+		if err != nil {
+			databaseError(nil, w)
+			return
+		}
+		type groupedSkill struct {
+			Skill       string `json:"skill"`
+			Skill_count int    `json:"skill_count"`
+		}
+		var res []groupedSkill
+		for grouped_skills.Next() {
+			var skill groupedSkill
+			_ = grouped_skills.Scan(&skill.Skill, &skill.Skill_count)
+			if min_freq_str != "" && skill.Skill_count < min_freq {
+				continue
+			}
+			if max_freq_str != "" && skill.Skill_count > max_freq {
+				continue
+			}
+			res = append(res, skill)
+		}
+		log.Println("skills ", res)
+		writeBody(r, w, res)
 	}
 }
 
