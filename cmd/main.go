@@ -25,7 +25,7 @@ func NewServer(db *sql.DB) http.Handler {
 	return handler
 }
 
-func run(ctx context.Context, args []string) error {
+func run(ctx context.Context) error {
 	//set up safe interrupt
 	ctx, cancel := signal.NotifyContext(ctx, os.Interrupt)
 	defer cancel()
@@ -81,7 +81,7 @@ func run(ctx context.Context, args []string) error {
 func main() {
 	//for safe shutdown
 	ctx := context.Background()
-	if err := run(ctx, os.Args); err != nil {
+	if err := run(ctx); err != nil {
 		fmt.Fprintf(os.Stderr, "%s\n", err)
 		os.Exit(1)
 	}
