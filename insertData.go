@@ -46,7 +46,7 @@ func main() {
 		fmt.Println("Error:", err)
 		return
 	}
-	db, err := sql.Open("postgres", "postgresql://anyuan-chen:kx2nfStgGvp1@ep-round-river-a5two8jo.us-east-2.aws.neon.tech/hackathon?sslmode=require")
+	db, err := sql.Open("postgres", "postgresql://anyuan-chen:TiCM34meZERy@ep-round-river-a5two8jo.us-east-2.aws.neon.tech/hackathon?sslmode=require")
 	if err != nil {
 		fmt.Print(err, "db connect error")
 		return

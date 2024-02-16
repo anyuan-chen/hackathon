@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"log"
 	"net/http"
 	"strconv"
 
@@ -44,10 +45,11 @@ func readBody(r *http.Request, w http.ResponseWriter) (interface{}, error) {
 }
 
 func writeBody(r *http.Request, w http.ResponseWriter, resp interface{}) {
-	var json_resp []byte
-	json.Marshal(resp)
+	json_resp, err := json.Marshal(resp)
+	if err != nil {
+		panic("coudln't serialize body")
+	}
 	w.Write(json_resp)
-	w.WriteHeader(http.StatusAccepted)
 }
 
 func databaseError(dest Statement, w http.ResponseWriter) {
@@ -62,7 +64,7 @@ func handleHealth() http.HandlerFunc {
 }
 func handleLogin(db *sql.DB) http.HandlerFunc {
 	type response struct {
-		access_token string
+		Access_token string `json:"access_token"`
 	}
 	return func(w http.ResponseWriter, r *http.Request) {
 		id, pass, err := auth.GetIdPasswordFromRequest(r)
@@ -71,7 +73,7 @@ func handleLogin(db *sql.DB) http.HandlerFunc {
 			w.WriteHeader(http.StatusUnauthorized)
 			return
 		}
-		stmt := Users.SELECT(Users.HashedSecret).WHERE(Users.ID.EQ(Int32(id)))
+		stmt := Users.SELECT(Users.HashedSecret, Users.Salt).WHERE(Users.ID.EQ(Int32(id)))
 		var users []model.Users
 		err = stmt.Query(db, &users)
 		if err != nil || len(users) != 1 {
@@ -79,9 +81,12 @@ func handleLogin(db *sql.DB) http.HandlerFunc {
 			return
 		}
 		user := users[0]
-		hashed_scrt, salt := auth.GetHashedPassword(pass)
-		if *user.HashedSecret != hashed_scrt || *user.Salt != salt {
+		hashed_scrt := auth.VerifyHashedPassword(pass, *user.Salt)
+		if *user.HashedSecret != hashed_scrt {
 			w.WriteHeader(http.StatusUnauthorized)
+			log.Println("user hash: ", *user.HashedSecret)
+			log.Println("provided hash ", hashed_scrt)
+
 			w.Write([]byte("incorrect pw for user"))
 			return
 		}
@@ -93,12 +98,15 @@ func handleLogin(db *sql.DB) http.HandlerFunc {
 		}
 		/* do work here */
 		resp := response{
-			access_token: *token.BearerToken,
+			Access_token: *token.BearerToken,
 		}
+		log.Println("handleLogin", *token.BearerToken)
 		var json_resp []byte
-		json.Marshal(resp)
+		json_resp, err = json.Marshal(resp)
+		if err != nil {
+			panic("bruh")
+		}
 		w.Write(json_resp)
-		w.WriteHeader(http.StatusAccepted)
 	}
 }
 
@@ -131,8 +139,15 @@ func handleGetOneUser(db *sql.DB) http.HandlerFunc {
 		if err != nil {
 			databaseError(stmt, w)
 			return
+		} else if len(users) == 0{
+			w.WriteHeader(http.StatusBadRequest)
+			w.Write([]byte(stmt.DebugSql()))
+			return
 		}
 		user := users[0]
+		log.Println("user from handler", user)
+		user.HashedSecret = nil
+		user.Salt = nil
 		writeBody(r, w, user)
 	}
 }

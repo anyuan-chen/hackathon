@@ -13,6 +13,11 @@ func argon2_password(password string, salt string) string {
 	return encoded
 }
 
+func VerifyHashedPassword(password string, salt string) string {
+	return argon2_password(password, salt)
+}
+
+
 func GetHashedPassword(password string) (salt string, hashed_pw string) {
 	generated_salt := uuid.New().String()
 	hashed_pw = argon2_password(password, generated_salt)
