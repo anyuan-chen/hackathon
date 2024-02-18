@@ -8,7 +8,6 @@
 package model
 
 type Skills struct {
-	ID     int32 `sql:"primary_key"`
 	UserID *int32
 	Skill  *string
 	Rating *int32

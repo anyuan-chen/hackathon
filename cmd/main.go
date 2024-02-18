@@ -48,7 +48,7 @@ func run(ctx context.Context) error {
 		return err
 	}
 	// set up sql db
-	db, err := sql.Open("postgres", "postgresql://anyuan-chen:TiCM34meZERy@ep-round-river-a5two8jo.us-east-2.aws.neon.tech/hackathon?sslmode=require")
+	db, err := sql.Open("postgres", conf.DatabaseUrl)
 	if err != nil {
 		fmt.Printf("unable to open database")
 		return err

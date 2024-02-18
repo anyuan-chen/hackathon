@@ -14,26 +14,6 @@ import (
 	"github.com/gorilla/mux"
 )
 
-// new table:
-// bearer_token
-// user_id
-
-// make account:
-// create a user endpoint
-// users supplies a password
-// password is hashed with a secret
-// hashed string is stored in db
-
-// login:
-// user supplies id + pw
-// pw gets hashed, compared to hashed pw in db
-// return random string as bearer token (expires in 3600)
-
-// every request:
-//
-
-// server has a centralized hashing token
-
 func getCurrentUser(db *sql.DB, w http.ResponseWriter, r *http.Request) (model.Users, error) {
 	token, err := auth.GetBearerToken(r)
 	if err != nil {

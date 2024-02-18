@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/base64"
 	"encoding/json"
@@ -14,6 +15,14 @@ import (
 	"github.com/anyuan-chen/hackathon/.gen/hackathon/public/model"
 	"github.com/stretchr/testify/assert"
 )
+
+func init() {
+	go run(context.Background())
+	err := waitUntilServiceReady(context.Background())
+	if err != nil {
+		log.Println("uh oh this is bad bad bad", err.Error())
+	}
+}
 
 func waitUntilServiceReady(ctx context.Context) error {
 	client := http.Client{}
@@ -74,7 +83,7 @@ func printReqBody(r *http.Response) {
 }
 
 func LoginAs(ctx context.Context, id string, pass string, t *testing.T) (person_id string, person_pw string, person_bearer_token string) {
-	startupService(ctx, t)
+	// startupService(ctx, t)
 	client := http.Client{}
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, "http://localhost:8000/login", nil)
 	if err != nil {
@@ -111,6 +120,15 @@ func LoginAs(ctx context.Context, id string, pass string, t *testing.T) (person_
 	return id, pass, person_bearer_token
 }
 
+type UserWithSkills struct {
+	ID      int            `json:"id"`
+	Name    string         `json:"name"`
+	Email   string         `json:"email"`
+	Company string         `json:"company"`
+	Phone   string         `json:"phone"`
+	Skills  []model.Skills `json:"skills"`
+}
+
 func TestGetSelfUser(t *testing.T) {
 	ctx := context.Background()
 	client := http.Client{}
@@ -134,7 +152,7 @@ func TestGetSelfUser(t *testing.T) {
 		t.FailNow()
 	}
 	//read response
-	var user model.Users
+	var user UserWithSkills
 	body_bytes, err := io.ReadAll(resp.Body)
 	if err != nil {
 		log.Println("body not read successfully")
@@ -143,13 +161,11 @@ func TestGetSelfUser(t *testing.T) {
 	json.Unmarshal(body_bytes, &user)
 	//assert user things here
 	// log.Println("bytes", string(body_bytes), user)
-	assert.Equal(t, *user.Name, "Emily May")
-	assert.Equal(t, *user.Company, "Graham Group")
-	assert.Equal(t, *user.Email, "estradadana@example.org")
-	assert.Equal(t, *user.Phone, "947.098.3138x493")
-	assert.Equal(t, *user.Role, "hacker")
-	assert.Nil(t, user.HashedSecret)
-	assert.Nil(t, user.Salt)
+	assert.Equal(t, user.Name, "Emily May")
+	assert.Equal(t, user.Company, "Graham Group")
+	assert.Equal(t, user.Email, "estradadana@example.org")
+	assert.Equal(t, user.Phone, "947.098.3138x493")
+	assert.NotEqual(t, len(user.Skills), 0)
 }
 func TestNoPermissionsFetchUser(t *testing.T) {
 	ctx := context.Background()
@@ -182,6 +198,89 @@ func TestNoPermissionsFetchUser(t *testing.T) {
 	assert.Equal(t, string(body_bytes), "only admins or owner of account may call this")
 }
 
+func TestUpdateUsers(t *testing.T) {
+	newName := "James Su"
+	newSkillName := "league of legends"
+	newRating := int32(10)
+	newSkills := make([]model.Skills, 0)
+	newSkills = append(newSkills, model.Skills{
+		Skill:  &newSkillName,
+		Rating: &newRating,
+	})
+
+	ctx := context.Background()
+	client := http.Client{}
+	_, _, bearer_token := LoginAs(ctx, "3", "hi_eggy!", t)
+	type request struct {
+		Name    *string         `json:"name"`
+		Email   *string         `json:"email"`
+		Company *string         `json:"company"`
+		Phone   *string         `json:"phone"`
+		Skills  *[]model.Skills `json:"skills"`
+	}
+	req_body := request{
+		Name:   &newName,
+		Skills: &newSkills,
+	}
+	log.Println("should be league", *newSkills[0].Skill)
+
+	req_body_json, err := json.Marshal(req_body)
+	log.Println(req_body_json)
+	assert.Nil(t, err)
+	req, err := http.NewRequestWithContext(ctx, http.MethodPut, "http://localhost:8000/users/3", bytes.NewBuffer(req_body_json))
+	assert.Nil(t, err)
+	req.Header.Add("Authorization", "Bearer "+bearer_token)
+	resp, err := client.Do(req)
+	if err != nil {
+		log.Println("request not executed successfully", err.Error())
+		t.FailNow()
+	}
+	//read response
+	var user UserWithSkills
+	body_bytes, err := io.ReadAll(resp.Body)
+	assert.Nil(t, err)
+	json.Unmarshal(body_bytes, &user)
+	assert.Equal(t, user.Name, "James Su")
+	assert.Equal(t, len(user.Skills), 1)
+	assert.Equal(t, *user.Skills[0].Rating, int32(10))
+	assert.Equal(t, *user.Skills[0].Skill, "league of legends")
+
+	newName2 := "Emily May"
+	newRating2 := int32(3)
+	newSkillName2 := "Julia"
+	newSkill := model.Skills{
+		Rating: &newRating2,
+		Skill:  &newSkillName2,
+	}
+	newSkills = make([]model.Skills, 0)
+	newSkills = append(newSkills, newSkill)
+	log.Println("should be juilia", *newSkills[0].Skill)
+	req_body = request{
+		Name:   &newName2,
+		Skills: &newSkills,
+	}
+	req_body_json, err = json.Marshal(req_body)
+	log.Println(string(req_body_json))
+	assert.Nil(t, err)
+	req, err = http.NewRequestWithContext(ctx, http.MethodPut, "http://localhost:8000/users/3", bytes.NewBuffer(req_body_json))
+	assert.Nil(t, err)
+	req.Header.Add("Authorization", "Bearer "+bearer_token)
+	resp, err = client.Do(req)
+	if err != nil {
+		log.Println("request not executed successfully", err.Error())
+		t.FailNow()
+	}
+	//read response
+	body_bytes, err = io.ReadAll(resp.Body)
+	assert.Nil(t, err)
+	json.Unmarshal(body_bytes, &user)
+	assert.Equal(t, user.Name, "Emily May")
+	assert.Equal(t, len(user.Skills), 1)
+	assert.Equal(t, *user.Skills[0].Rating, int32(3))
+	assert.Equal(t, *user.Skills[0].Skill, "Julia")
+	assert.Fail(t, "bruth")
+}
+
 func TestFetchAllUsers(t *testing.T) {
 	ctx := context.Background()
 	client := http.Client{}
@@ -195,7 +294,7 @@ func TestFetchAllUsers(t *testing.T) {
 	resp_body, err := io.ReadAll(resp.Body)
 	assert.Nil(t, err)
 	type response struct {
-		Users []model.Users `json:"users"`
+		Users []UserWithSkills `json:"users"`
 	}
 	var users response
 	json.Unmarshal(resp_body, &users)
@@ -203,18 +302,19 @@ func TestFetchAllUsers(t *testing.T) {
 	var t1, t2 bool
 	for _, user := range users.Users {
 		if user.ID == 3 {
-			assert.Equal(t, *user.Name, "Emily May")
-			assert.Equal(t, *user.Company, "Graham Group")
-			assert.Equal(t, *user.Email, "estradadana@example.org")
-			assert.Equal(t, *user.Phone, "947.098.3138x493")
-			assert.Equal(t, *user.Role, "hacker")
+			assert.Equal(t, user.Name, "Emily May")
+			assert.Equal(t, user.Company, "Graham Group")
+			assert.Equal(t, user.Email, "estradadana@example.org")
+			assert.Equal(t, user.Phone, "947.098.3138x493")
+			assert.NotEqual(t, len(user.Skills), 0)
+
 			t1 = true
 		} else if user.ID == 666666 {
-			assert.Equal(t, *user.Name, "Andrew Chen")
-			assert.Equal(t, *user.Company, "unemployed </3")
-			assert.Equal(t, *user.Email, "a22chen@uwaterloo.ca")
-			assert.Equal(t, *user.Phone, "9059059055")
-			assert.Equal(t, *user.Role, "admin")
+			assert.Equal(t, user.Name, "Andrew Chen")
+			assert.Equal(t, user.Company, "unemployed </3")
+			assert.Equal(t, user.Email, "a22chen@uwaterloo.ca")
+			assert.Equal(t, user.Phone, "9059059055")
+			assert.Equal(t, len(user.Skills), 0)
 			t2 = true
 		}
 	}
@@ -262,7 +362,7 @@ func TestFetchAllSkills(t *testing.T) {
 			skillExists[0] = true
 		}
 		if skill.Skill == "Tailwind" {
-			assert.Equal(t, skill.Skill_count, 33)
+			assert.Equal(t, skill.Skill_count, 32)
 			skillExists[1] = true
 		}
 		if skill.Skill == "TypeScript" {
@@ -270,7 +370,7 @@ func TestFetchAllSkills(t *testing.T) {
 			skillExists[2] = true
 		}
 		if skill.Skill == "Rust" {
-			assert.Equal(t, skill.Skill_count, 35)
+			assert.Equal(t, skill.Skill_count, 34)
 			skillExists[3] = true
 		}
 	}
@@ -302,14 +402,14 @@ func TestFetchAllSkillsWithMinFreq(t *testing.T) {
 			t.FailNow()
 		}
 		if skill.Skill == "Tailwind" {
-			assert.Equal(t, skill.Skill_count, 33)
+			assert.Equal(t, skill.Skill_count, 32)
 			skillExists[0] = true
 		}
 		if skill.Skill == "TypeScript" {
 			t.FailNow()
 		}
 		if skill.Skill == "Rust" {
-			assert.Equal(t, skill.Skill_count, 35)
+			assert.Equal(t, skill.Skill_count, 34)
 			skillExists[1] = true
 		}
 	}

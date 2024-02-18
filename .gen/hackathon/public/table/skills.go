@@ -17,7 +17,6 @@ type skillsTable struct {
 	postgres.Table
 
 	// Columns
-	ID     postgres.ColumnInteger
 	UserID postgres.ColumnInteger
 	Skill  postgres.ColumnString
 	Rating postgres.ColumnInteger
@@ -61,11 +60,10 @@ func newSkillsTable(schemaName, tableName, alias string) *SkillsTable {
 
 func newSkillsTableImpl(schemaName, tableName, alias string) skillsTable {
 	var (
-		IDColumn       = postgres.IntegerColumn("id")
 		UserIDColumn   = postgres.IntegerColumn("user_id")
 		SkillColumn    = postgres.StringColumn("skill")
 		RatingColumn   = postgres.IntegerColumn("rating")
-		allColumns     = postgres.ColumnList{IDColumn, UserIDColumn, SkillColumn, RatingColumn}
+		allColumns     = postgres.ColumnList{UserIDColumn, SkillColumn, RatingColumn}
 		mutableColumns = postgres.ColumnList{UserIDColumn, SkillColumn, RatingColumn}
 	)
 
@@ -73,7 +71,6 @@ func newSkillsTableImpl(schemaName, tableName, alias string) skillsTable {
 		Table: postgres.NewTable(schemaName, tableName, alias, allColumns...),
 
 		//Columns
-		ID:     IDColumn,
 		UserID: UserIDColumn,
 		Skill:  SkillColumn,
 		Rating: RatingColumn,
