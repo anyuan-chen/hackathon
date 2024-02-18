@@ -23,7 +23,7 @@ This inserts the data. This is going to take a long time, up to 5 minutes. This 
     go test ./cmd
 ```
 
-Tests are in cmd/main_test.go. They are basic, not complete e2e tests that cover all the endpoints.
+Tests are in cmd/main_test.go. They are basic, not complete e2e tests that cover all the endpoints. Note: tests are hardcoded to port 8000 (oops) so please don't change the port in the config. 
 
 Should take ~7 seconds to run.
 
@@ -37,13 +37,20 @@ Should take ~7 seconds to run.
 
 Authentication
 
-A user has a id and password. They retriever a bearer token from the /login endpoint by supplying the id and password with a basic auth header set. This bearer token is then used to identify the user in future requests. There are two levels of permissions - admins, and hackers. Admins can access anything, while users are restricted to their own data.
+A user has a id and password. They retriever a bearer token from the /login endpoint by supplying the id and password with a basic auth header set. This bearer token is then used to identify the user in future requests. There are two levels of permissions - admins, and hackers. Admins can access anything, while users are restricted to their own data. Each user has a salt and a hashed password + salt stored in the database. To verify if a password is correct, the salt is appended, the new string is hashed and compared to the hashed string in the db.
 
-Sample admin account:
+#### Sample admin account:
 
 username/id: 666666
 
-pass: root
+password: root
+
+#### Sample hacker account:
+username/id: 3
+
+password: hi_eggy!
+
+If you want to use another account, see insertData for the username/passwords.
 
 ## Endpoints:
 
@@ -56,6 +63,9 @@ GET /login
 Usage:
 Must set Authorization header with Basic auth according to HTTP standard.
 
+Example request:
+
+
 GET /users/{id}
 
 Restrictions:
@@ -65,8 +75,11 @@ Usage:
 Must set Authorization header with Bearer auth and the token provided from /login
 
 UPDATE /users/{id}
+Headers:
+```
+Authorization: Bearer xxx
+```
 Body:
-
 ```
 {
 name: "",
@@ -89,7 +102,10 @@ Usage:
 Must set Authorization header with Bearer auth and the token provided from /login
 
 /users
-
+Headers:
+```
+Authorization: Bearer xxx
+```
 Restrictions:
 admins only
 
@@ -97,7 +113,10 @@ Usage:
 Must set Authorization header with Bearer auth and the token provided from /login
 
 /skills
-
+Headers:
+```
+Authorization: Bearer xxx
+```
 Restrictions:
 admins only
 
