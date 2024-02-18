@@ -1,10 +1,10 @@
 package hackers
 
 import (
-	"bytes"
 	"database/sql"
 	"encoding/json"
-	"errors"
+	"io"
+	"log"
 	"net/http"
 	"strconv"
 
@@ -30,24 +30,21 @@ type InputPerson struct {
 	Skills  *[]InputSkill `json:"skills"`
 }
 
-func readBody(r *http.Request, w http.ResponseWriter) (interface{}, error) {
-	var resp interface{}
-	var data *bytes.Buffer
-	data.ReadFrom(r.Body)
-	err := json.Unmarshal(data.Bytes(), &resp)
-	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte("malformed json body"))
-		return nil, errors.New("")
-	}
-	return resp, nil
+type UserWithSkills struct {
+	Id      int            `json:"id"`
+	Name    string         `json:"name"`
+	Email   string         `json:"email"`
+	Company string         `json:"company"`
+	Phone   string         `json:"phone"`
+	Skills  []model.Skills `json:"skills"`
 }
 
 func writeBody(r *http.Request, w http.ResponseWriter, resp interface{}) {
-	var json_resp []byte
-	json.Marshal(resp)
+	json_resp, err := json.Marshal(resp)
+	if err != nil {
+		panic("coudln't serialize body")
+	}
 	w.Write(json_resp)
-	w.WriteHeader(http.StatusAccepted)
 }
 
 func databaseError(dest Statement, w http.ResponseWriter) {
@@ -60,9 +57,10 @@ func handleHealth() http.HandlerFunc {
 		w.WriteHeader(http.StatusOK)
 	}
 }
+
 func handleLogin(db *sql.DB) http.HandlerFunc {
 	type response struct {
-		access_token string
+		Access_token string `json:"access_token"`
 	}
 	return func(w http.ResponseWriter, r *http.Request) {
 		id, pass, err := auth.GetIdPasswordFromRequest(r)
@@ -71,7 +69,7 @@ func handleLogin(db *sql.DB) http.HandlerFunc {
 			w.WriteHeader(http.StatusUnauthorized)
 			return
 		}
-		stmt := Users.SELECT(Users.HashedSecret).WHERE(Users.ID.EQ(Int32(id)))
+		stmt := Users.SELECT(Users.HashedSecret, Users.Salt).WHERE(Users.ID.EQ(Int32(id)))
 		var users []model.Users
 		err = stmt.Query(db, &users)
 		if err != nil || len(users) != 1 {
@@ -79,9 +77,12 @@ func handleLogin(db *sql.DB) http.HandlerFunc {
 			return
 		}
 		user := users[0]
-		hashed_scrt, salt := auth.GetHashedPassword(pass)
-		if *user.HashedSecret != hashed_scrt || *user.Salt != salt {
+		hashed_scrt := auth.VerifyHashedPassword(pass, *user.Salt)
+		if *user.HashedSecret != hashed_scrt {
 			w.WriteHeader(http.StatusUnauthorized)
+			log.Println("user hash: ", *user.HashedSecret)
+			log.Println("provided hash ", hashed_scrt)
+
 			w.Write([]byte("incorrect pw for user"))
 			return
 		}
@@ -93,31 +94,64 @@ func handleLogin(db *sql.DB) http.HandlerFunc {
 		}
 		/* do work here */
 		resp := response{
-			access_token: *token.BearerToken,
+			Access_token: *token.BearerToken,
 		}
+		log.Println("handleLogin", *token.BearerToken)
 		var json_resp []byte
-		json.Marshal(resp)
+		json_resp, err = json.Marshal(resp)
+		if err != nil {
+			panic("bruh")
+		}
 		w.Write(json_resp)
-		w.WriteHeader(http.StatusAccepted)
 	}
 }
 
 func handleGetAllUsers(db *sql.DB) http.HandlerFunc {
-	type request struct {
-	}
 	type response struct {
-		users model.Users
+		Users []UserWithSkills `json:"users"`
 	}
 	return func(w http.ResponseWriter, r *http.Request) {
-
+		var users []model.Users
+		stmt := Users.SELECT(Users.ID, Users.Name, Users.Email, Users.Company, Users.Role, Users.Role, Users.Phone)
+		err := stmt.Query(db, &users)
+		if err != nil {
+			databaseError(stmt, w)
+			return
+		}
+		users_with_skills := make([]UserWithSkills, 0, len(users))
+		skillsMap := make(map[int32]*UserWithSkills)
+		for _, user := range users {
+			userWithSkill := UserWithSkills{
+				Id:      int(user.ID),
+				Name:    *user.Name,
+				Email:   *user.Email,
+				Company: *user.Company,
+				Phone:   *user.Phone,
+				Skills:  make([]model.Skills, 0),
+			}
+			skillsMap[user.ID] = &userWithSkill
+		}
+		var skills []model.Skills
+		allSkills := Skills.SELECT(Skills.AllColumns)
+		err = allSkills.Query(db, &skills)
+		if err != nil {
+			databaseError(stmt, w)
+			return
+		}
+		for _, skill := range skills {
+			(*skillsMap[int32(*skill.UserID)]).Skills = append(skillsMap[int32(*skill.UserID)].Skills, skill)
+		}
+		for _, value := range skillsMap {
+			users_with_skills = append(users_with_skills, *value)
+		}
+		resp := response{
+			Users: users_with_skills,
+		}
+		writeBody(r, w, resp)
 	}
 }
 
 func handleGetOneUser(db *sql.DB) http.HandlerFunc {
-	type request struct {
-		id int32
-	}
-	type response = model.Users
 	return func(w http.ResponseWriter, r *http.Request) {
 		id, err := strconv.Atoi(mux.Vars(r)["id"])
 		if err != nil {
@@ -131,54 +165,156 @@ func handleGetOneUser(db *sql.DB) http.HandlerFunc {
 		if err != nil {
 			databaseError(stmt, w)
 			return
+		} else if len(users) == 0 {
+			w.WriteHeader(http.StatusBadRequest)
+			w.Write([]byte(stmt.DebugSql()))
+			return
 		}
 		user := users[0]
-		writeBody(r, w, user)
+
+		var skills []model.Skills
+		stmt = Skills.SELECT(Skills.AllColumns).WHERE(Skills.UserID.EQ(Int32(int32(id))))
+		stmt.Query(db, &skills)
+		if err != nil {
+			databaseError(stmt, w)
+			return
+		}
+		// log.Println("skills", skills, id)
+		combinedUserSkills := UserWithSkills{
+			Id:      int(user.ID),
+			Name:    *user.Name,
+			Email:   *user.Email,
+			Company: *user.Company,
+			Phone:   *user.Phone,
+			Skills:  skills,
+		}
+		// log.Println("user from handler", user)
+		user.HashedSecret = nil
+		user.Salt = nil
+		writeBody(r, w, combinedUserSkills)
 	}
 }
 
 func handleUpdateOneUser(db *sql.DB) http.HandlerFunc {
-	type request = InputPerson
+	type request struct {
+		Name    *string         `json:"name"`
+		Email   *string         `json:"email"`
+		Company *string         `json:"company"`
+		Phone   *string         `json:"phone"`
+		Skills  *[]model.Skills `json:"skills"`
+	}
 	type response = model.Users
 	return func(w http.ResponseWriter, r *http.Request) {
+		id, err := strconv.Atoi(mux.Vars(r)["id"])
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			w.Write([]byte("id not integer"))
+			return
+		}
+		var input request
+		body_bytes, _ := io.ReadAll(r.Body)
+		json.Unmarshal(body_bytes, &input)
 
+		/* bad code, consequence of go-jet */
+		var exisingUsers []model.Users
+		stmt := Users.SELECT(Users.AllColumns).WHERE(Users.ID.EQ(Int32(int32(id))))
+		stmt.Query(db, &exisingUsers)
+		existingUser := exisingUsers[0]
+
+		if input.Name != nil {
+			existingUser.Name = input.Name
+		}
+		if input.Company != nil {
+			existingUser.Company = input.Company
+		}
+		if input.Phone != nil {
+			existingUser.Phone = input.Phone
+		}
+		if input.Email != nil {
+			existingUser.Email = input.Email
+		}
+		var updated []model.Users
+		updt := Users.UPDATE(Users.MutableColumns).MODEL(existingUser).WHERE(Users.ID.EQ(Int32(int32(id)))).RETURNING(Users.AllColumns)
+		updt.Query(db, &updated)
+
+		var finalSkills []model.Skills
+		var existingSkills []model.Skills
+		stmt = Skills.SELECT(Skills.AllColumns).WHERE(Skills.UserID.EQ(Int32(int32(id))))
+		stmt.Query(db, &existingSkills)
+
+		if input.Skills != nil {
+			input_skills := *input.Skills
+			for idx := range input_skills {
+				int32id := int32(id)
+				input_skills[idx].UserID = &int32id
+			}
+			del := Skills.DELETE().WHERE(Skills.UserID.EQ(Int32(int32(id))))
+			del.Exec(db)
+			log.Println(input.Skills)
+			ins := Skills.INSERT(Skills.AllColumns).MODELS(*input.Skills).RETURNING(Skills.AllColumns)
+			ins.Query(db, &finalSkills)
+		} else {
+			finalSkills = existingSkills
+		}
+
+		combinedUserSkills := UserWithSkills{
+			Id:      int(updated[0].ID),
+			Name:    *updated[0].Name,
+			Email:   *updated[0].Email,
+			Company: *updated[0].Company,
+			Phone:   *updated[0].Phone,
+			Skills:  finalSkills,
+		}
+		log.Println()
+		writeBody(r, w, combinedUserSkills)
 	}
 }
 
 func handleGetAllSkills(db *sql.DB) http.HandlerFunc {
-	type request struct {
-		min_freq int `json:"min_freq"`
-		max_freq int `json:"max_freq"`
-	}
-	type response = []model.Skills
 	return func(w http.ResponseWriter, r *http.Request) {
-
+		min_freq_str := r.URL.Query().Get("min_freq")
+		max_freq_str := r.URL.Query().Get("max_freq")
+		var min_freq, max_freq int
+		if min_freq_str != "" {
+			mf, err := strconv.Atoi(min_freq_str)
+			if err != nil {
+				w.WriteHeader(http.StatusBadRequest)
+				w.Write([]byte("malformed min_freq query parameters"))
+				return
+			}
+			min_freq = mf
+		}
+		if max_freq_str != "" {
+			mf, err := strconv.Atoi(max_freq_str)
+			if err != nil {
+				w.WriteHeader(http.StatusBadRequest)
+				w.Write([]byte("malformed max_freq query parameters"))
+				return
+			}
+			max_freq = mf
+		}
+		grouped_skills, err := db.Query("SELECT skills.skill, COUNT(*) AS skill_count FROM public.skills GROUP BY skills.skill;")
+		if err != nil {
+			databaseError(nil, w)
+			return
+		}
+		type groupedSkill struct {
+			Skill       string `json:"skill"`
+			Skill_count int    `json:"skill_count"`
+		}
+		var res []groupedSkill
+		for grouped_skills.Next() {
+			var skill groupedSkill
+			_ = grouped_skills.Scan(&skill.Skill, &skill.Skill_count)
+			if min_freq_str != "" && skill.Skill_count < min_freq {
+				continue
+			}
+			if max_freq_str != "" && skill.Skill_count > max_freq {
+				continue
+			}
+			res = append(res, skill)
+		}
+		log.Println("skills ", res)
+		writeBody(r, w, res)
 	}
 }
-
-func handleCreateUser(db *sql.DB) http.HandlerFunc {
-	type request = InputPerson
-	type response = InputPerson
-	return func(w http.ResponseWriter, r *http.Request) {
-
-	}
-}
-
-func handleScanUser(db *sql.DB) http.HandlerFunc {
-	type request struct {
-		id string
-	}
-	type response struct {
-		qrcode string `json:"qrcode"`
-	}
-	//hash the time so the QR code generated is different for a certain time, qr code generated will lose effect in x amount of time
-
-	//anti-fraud for funsies + defence, ticketmaster has this!
-	//if incorrect user, report as fraud
-	//regenerate if wrong time
-	return func(w http.ResponseWriter, r *http.Request) {
-
-	}
-}
-
-//if have time: implement

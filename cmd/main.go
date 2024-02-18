@@ -14,11 +14,15 @@ import (
 	"github.com/anyuan-chen/hackathon/configs"
 	"github.com/anyuan-chen/hackathon/src/hackers"
 	"github.com/gookit/config/v2"
+	"github.com/gookit/config/v2/yamlv3"
 	"github.com/gorilla/mux"
+	_ "github.com/lib/pq"
 )
 
+/*
+* new server, add routes
+ */
 func NewServer(db *sql.DB) http.Handler {
-	// mux := http.NewServeMux()
 	r := mux.NewRouter()
 	hackers.AddRoutes(r, db)
 	var handler http.Handler = r
@@ -31,9 +35,10 @@ func run(ctx context.Context) error {
 	defer cancel()
 
 	//load config file
-	err := config.LoadFiles("./configs/basic.yml")
+	config.AddDriver(yamlv3.Driver)
+	err := config.LoadFiles("../configs/basic.yml")
 	if err != nil {
-		fmt.Printf("failed to load the config file")
+		print("failed to load the config file", err.Error())
 		return err
 	}
 	conf := configs.Config{}
@@ -43,7 +48,7 @@ func run(ctx context.Context) error {
 		return err
 	}
 	// set up sql db
-	db, err := sql.Open("sqlite3", "./data.db")
+	db, err := sql.Open("postgres", conf.DatabaseUrl)
 	if err != nil {
 		fmt.Printf("unable to open database")
 		return err
