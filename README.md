@@ -15,7 +15,7 @@
    go run ./insertData.go
 ```
 
-This inserts the data. This is going to take a long time, up to 5 minutes. This is because of the use of the argon2id hashing algorithm, more on that later.
+This inserts the data. This is going to take a long time, up to 5 minutes. This is because of the use of the argon2id hashing algorithm which is expensive to hash passwords.
 
 4. Test the application:
 
