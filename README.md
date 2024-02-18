@@ -2,8 +2,8 @@
 
 ## Prerequisites
 
-go 1.21.0 installed
-your own postgres database (i used https://neon.tech/)
+- go 1.21.0 installed
+- your own postgres database (i used https://neon.tech/)
 
 ## Setup:
 
@@ -40,7 +40,9 @@ Authentication
 A user has a id and password. They retriever a bearer token from the /login endpoint by supplying the id and password with a basic auth header set. This bearer token is then used to identify the user in future requests. There are two levels of permissions - admins, and hackers. Admins can access anything, while users are restricted to their own data.
 
 Sample admin account:
+
 username/id: 666666
+
 pass: root
 
 ## Endpoints:
