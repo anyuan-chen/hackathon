@@ -4,7 +4,8 @@
 
 - cmd/main.go is the main executable
 - src contains the handlers
-- handlers, routes, etc all in src
+- handlers, auth code, routes, etc all in src
+- insertData.go is the script to insert data
 
 ## Prerequisites
 
