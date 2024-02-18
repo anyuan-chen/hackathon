@@ -108,7 +108,6 @@ func LoginAs(ctx context.Context, id string, pass string, t *testing.T) (person_
 		log.Println("malformed body", err.Error())
 		t.FailNow()
 	}
-	// log.Println("raw token: ", body)
 	type response struct {
 		Access_token string `json:"access_token"`
 	}
@@ -116,7 +115,6 @@ func LoginAs(ctx context.Context, id string, pass string, t *testing.T) (person_
 	json.Unmarshal(body, &token)
 
 	person_bearer_token = token.Access_token
-	// log.Println("person_bearer_token", person_bearer_token)
 	return id, pass, person_bearer_token
 }
 
@@ -260,7 +258,6 @@ func TestUpdateUsers(t *testing.T) {
 		Skills: &newSkills,
 	}
 	req_body_json, err = json.Marshal(req_body)
-	log.Println(string(req_body_json))
 	assert.Nil(t, err)
 	req, err = http.NewRequestWithContext(ctx, http.MethodPut, "http://localhost:8000/users/3", bytes.NewBuffer(req_body_json))
 	assert.Nil(t, err)
@@ -278,7 +275,6 @@ func TestUpdateUsers(t *testing.T) {
 	assert.Equal(t, len(user.Skills), 1)
 	assert.Equal(t, *user.Skills[0].Rating, int32(3))
 	assert.Equal(t, *user.Skills[0].Skill, "Julia")
-	assert.Fail(t, "bruth")
 }
 
 func TestFetchAllUsers(t *testing.T) {
@@ -298,7 +294,6 @@ func TestFetchAllUsers(t *testing.T) {
 	}
 	var users response
 	json.Unmarshal(resp_body, &users)
-	// log.Println(string(resp_body))
 	var t1, t2 bool
 	for _, user := range users.Users {
 		if user.ID == 3 {

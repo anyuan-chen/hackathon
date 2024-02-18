@@ -3,7 +3,6 @@ package hackers
 import (
 	"database/sql"
 	"errors"
-	"log"
 	"net/http"
 	"strconv"
 
@@ -24,7 +23,6 @@ func getCurrentUser(db *sql.DB, w http.ResponseWriter, r *http.Request) (model.U
 	}
 
 	user, err := auth.GetUserFromBearerToken(db, token)
-	log.Println("token: ", token)
 	if err != nil {
 		print(err.Error())
 		w.Write([]byte(err.Error() + " no user associated with token"))
@@ -45,7 +43,6 @@ func getCurrentUser(db *sql.DB, w http.ResponseWriter, r *http.Request) (model.U
 	if len(dest) != 1 {
 		return model.Users{}, errors.New("bad # of records")
 	}
-	// log.Println(statement.DebugSql(), dest[0].ID)
 	return dest[0], nil
 }
 
@@ -67,12 +64,10 @@ func adminOnly(db *sql.DB, h http.Handler) http.Handler {
 func selfOrAdmin(db *sql.DB, h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		id, err := strconv.Atoi(mux.Vars(r)["id"])
-		log.Println("id: ", id)
 		if err != nil {
 			return
 		}
 		user, err := getCurrentUser(db, w, r)
-		log.Println("current user: ", id, user.ID)
 		if err != nil {
 			return
 		}

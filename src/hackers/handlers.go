@@ -179,7 +179,6 @@ func handleGetOneUser(db *sql.DB) http.HandlerFunc {
 			databaseError(stmt, w)
 			return
 		}
-		// log.Println("skills", skills, id)
 		combinedUserSkills := UserWithSkills{
 			Id:      int(user.ID),
 			Name:    *user.Name,
@@ -188,7 +187,6 @@ func handleGetOneUser(db *sql.DB) http.HandlerFunc {
 			Phone:   *user.Phone,
 			Skills:  skills,
 		}
-		// log.Println("user from handler", user)
 		user.HashedSecret = nil
 		user.Salt = nil
 		writeBody(r, w, combinedUserSkills)
@@ -250,7 +248,6 @@ func handleUpdateOneUser(db *sql.DB) http.HandlerFunc {
 			}
 			del := Skills.DELETE().WHERE(Skills.UserID.EQ(Int32(int32(id))))
 			del.Exec(db)
-			log.Println(input.Skills)
 			ins := Skills.INSERT(Skills.AllColumns).MODELS(*input.Skills).RETURNING(Skills.AllColumns)
 			ins.Query(db, &finalSkills)
 		} else {
@@ -265,7 +262,6 @@ func handleUpdateOneUser(db *sql.DB) http.HandlerFunc {
 			Phone:   *updated[0].Phone,
 			Skills:  finalSkills,
 		}
-		log.Println()
 		writeBody(r, w, combinedUserSkills)
 	}
 }
@@ -314,7 +310,6 @@ func handleGetAllSkills(db *sql.DB) http.HandlerFunc {
 			}
 			res = append(res, skill)
 		}
-		log.Println("skills ", res)
 		writeBody(r, w, res)
 	}
 }
