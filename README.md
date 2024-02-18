@@ -1,5 +1,11 @@
 # hackathon
 
+## Project Structure 
+
+- cmd/main.go is the main executable
+- src contains the handlers
+- handlers, routes, etc all in src
+
 ## Prerequisites
 
 - go 1.21.0 installed
