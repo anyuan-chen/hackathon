@@ -39,6 +39,8 @@ Authentication
 
 A user has a id and password. They retriever a bearer token from the /login endpoint by supplying the id and password with a basic auth header set. This bearer token is then used to identify the user in future requests. There are two levels of permissions - admins, and hackers. Admins can access anything, while users are restricted to their own data. Each user has a salt and a hashed password + salt stored in the database. To verify if a password is correct, the salt is appended, the new string is hashed and compared to the hashed string in the db.
 
+Note: you may wonder why I didn't have token as a column in the users table. This is because in the future, you may want to issue more than one bearer token per user to keep more granular tracking possible (eg. different token per MAC address so you can see if an update was done on a laptop/phone) 
+
 #### Sample admin account:
 
 username/id: 666666
@@ -122,3 +124,5 @@ admins only
 
 Usage:
 Must set Authorization header with Bearer auth and the token provided from /login
+
+
